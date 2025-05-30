@@ -22,6 +22,7 @@ RUN adduser --disabled-password --gecos '' appuser \
     && chown -R appuser /app
 USER appuser
 
+
 ENV OPENAI_API_KEY="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"
 # ---- Start the service ------------------------------------------------------
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
