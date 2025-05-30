@@ -49,5 +49,7 @@ jobs:
           IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUDRUN_NAME }}"
           gcloud run deploy ${{ env.CLOUDRUN_NAME }} \
             --image ${IMAGE}:${{ github.sha }} \
+            --platform managed \
             --region ${{ env.REGION }} \
-            --quiet
+            --allow-unauthenticated \
+            --set-env-vars GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}

@@ -10,6 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import OpenAI
+from google.cloud import secretmanager
 from LLM.model import call_openai
 
 
@@ -30,7 +31,34 @@ if not logger.handlers:
     logger.addHandler(handler)
 logger.setLevel(LOG_LEVEL)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+def get_secret(secret_id: str, project_id: str = None) -> str:
+    """Fetch secret from Google Cloud Secret Manager."""
+    if project_id is None:
+        project_id = os.getenv("GCP_PROJECT_ID")
+    
+    if not project_id:
+        raise ValueError("GCP_PROJECT_ID environment variable is required")
+    
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
+
+# Get OpenAI API key from Secret Manager
+try:
+    openai_api_key = get_secret("openai-api-key")
+except Exception as e:
+    logger.error(f"Failed to fetch OpenAI API key from Secret Manager: {e}")
+    # Fallback to environment variable for local development
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise ValueError("OpenAI API key not found in Secret Manager or environment variables")
+
+
+
+openai_api_key = openai_api_key.strip() if openai_api_key else None
+client = OpenAI(api_key=openai_api_key)
 
 app = FastAPI(title="Customer-Service Chatbot", version="1.0.0")
 app.add_middleware(
@@ -44,7 +72,6 @@ app.add_middleware(
 
 @app.post("/chat", response_model=Dict[str, Any], status_code=200)
 async def chat(request: Request) -> JSONResponse:  # noqa: D401
-
 
 
     try:
