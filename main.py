@@ -31,50 +31,19 @@ if not logger.handlers:
     logger.addHandler(handler)
 logger.setLevel(LOG_LEVEL)
 
-def get_secret(secret_id: str, project_id: str = None) -> str:
-    """Fetch secret from Google Cloud Secret Manager."""
-    if project_id is None:
-        project_id = os.getenv("GCP_PROJECT_ID")
-    
-    if not project_id:
-        raise ValueError("GCP_PROJECT_ID environment variable is required")
-    
-    project_id = project_id.strip()
-    
-    try:
-        client = secretmanager.SecretManagerServiceClient()
-        name = f"projects/663029010689/secrets/openai-api-key/versions/1"
-        response = client.access_secret_version(request={"name": name})
-        return response.payload.data.decode("UTF-8")
-    except Exception as e:
-        logger.error(f"Failed to retrieve secret '{secret_id}' from project '{project_id}': {e}")
-        raise
 
-def get_openai_api_key() -> str:
-    """Get OpenAI API key from Secret Manager or environment variable."""
-    # Try Secret Manager first
-    try:
-        logger.info("Fetching OpenAI API key from Secret Manager")
-        return get_secret("openai-api-key").strip()
-    except Exception as e:
-        logger.warning(f"Secret Manager failed: {e}")
-        
-    # Fallback to environment variable
-    logger.info("Falling back to environment variable")
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OpenAI API key not found in Secret Manager or OPENAI_API_KEY environment variable")
-    
-    return api_key.strip()
 
-# Get OpenAI API key
-try:
-    openai_api_key = get_openai_api_key()
-    logger.info("Successfully retrieved OpenAI API key")
-except Exception as e:
-    logger.error(f"Failed to get OpenAI API key: {e}")
-    raise
-
+client = secretmanager.SecretManagerServiceClient()
+def access_secret(project_id, secret_id, version_id=1):
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
+PROJECT_ID = "mittliv"
+SECRET_ID = "openai-api-key"
+openai_api_key = access_secret(
+  project_id=PROJECT_ID, 
+  secret_id=SECRET_ID
+)
 
 openai_api_key = openai_api_key.strip() if openai_api_key else None
 client = OpenAI(api_key=openai_api_key)
