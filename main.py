@@ -43,7 +43,7 @@ def get_secret(secret_id: str, project_id: str = None) -> str:
     
     try:
         client = secretmanager.SecretManagerServiceClient()
-        name = f"projects/663029010689/secrets/openai-api-key/versions/latest"
+        name = f"projects/663029010689/secrets/openai-api-key/versions/1"
         response = client.access_secret_version(request={"name": name})
         return response.payload.data.decode("UTF-8")
     except Exception as e:
