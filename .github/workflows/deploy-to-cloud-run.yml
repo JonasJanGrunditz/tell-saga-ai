@@ -35,6 +35,7 @@ jobs:
       # 3. Build & push two tags:
       #    • SHA tag       (useful for roll-backs)
       #    • latest        (what Cloud Run always points at)
+      
       - name: Build and push image
         run: |
           IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUDRUN_NAME }}"
