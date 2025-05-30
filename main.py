@@ -37,24 +37,45 @@ def get_secret(secret_id: str, project_id: str = None) -> str:
         project_id = os.getenv("GCP_PROJECT_ID")
     
     if not project_id:
+        logger.error("GCP_PROJECT_ID environment variable is not set")
         raise ValueError("GCP_PROJECT_ID environment variable is required")
     
-    client = secretmanager.SecretManagerServiceClient()
-    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    # Log the project ID for debugging (mask it partially for security)
+    masked_project_id = f"{project_id[:8]}***{project_id[-4:]}" if len(project_id) > 12 else "***"
+    logger.info(f"Attempting to access Secret Manager for project: {masked_project_id}")
     
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
+    # Validate project ID format (basic validation)
+    if not project_id.replace("-", "").replace("_", "").isalnum():
+        logger.error(f"Invalid project ID format: {masked_project_id}")
+        raise ValueError(f"Invalid GCP project ID format: {project_id}")
+    
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        logger.info(f"Fetching secret: {secret_id} from project: {masked_project_id}")
+        
+        response = client.access_secret_version(request={"name": name})
+        logger.info(f"Successfully retrieved secret: {secret_id}")
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        logger.error(f"Failed to access secret '{secret_id}' from project '{masked_project_id}': {str(e)}")
+        raise
 
 # Get OpenAI API key from Secret Manager
 try:
+    logger.info("Attempting to fetch OpenAI API key from Google Cloud Secret Manager")
     openai_api_key = get_secret("openai-api-key")
+    logger.info("Successfully retrieved OpenAI API key from Secret Manager")
 except Exception as e:
     logger.error(f"Failed to fetch OpenAI API key from Secret Manager: {e}")
+    logger.info("Falling back to environment variable for local development")
     # Fallback to environment variable for local development
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
+        logger.error("OpenAI API key not found in Secret Manager or environment variables")
         raise ValueError("OpenAI API key not found in Secret Manager or environment variables")
-
+    else:
+        logger.info("Using OpenAI API key from environment variable")
 
 
 openai_api_key = openai_api_key.strip() if openai_api_key else None
