@@ -20,9 +20,17 @@ def get_project_id():
     return os.getenv("GOOGLE_CLOUD_PROJECT", "mittliv")
 
 
+def transform_open_ai_key(key):
+    """Transform OpenAI key to the required format."""
+
+    return key.strip() if key else None
 
 client = secretmanager.SecretManagerServiceClient()
 def access_secret(secret_id, version_id=1):
     name = f"projects/{get_project_id()}/secrets/{secret_id}/versions/{version_id}"
     response = client.access_secret_version(request={"name": name})
+    if secret_id == "openai-api-key":
+        key = response.payload.data.decode("UTF-8")
+        key = transform_open_ai_key(key)
+        return key  
     return response.payload.data.decode("UTF-8")

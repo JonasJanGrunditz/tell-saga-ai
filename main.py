@@ -35,7 +35,6 @@ logger.setLevel(LOG_LEVEL)
 
 
 
-
 openai_api_key = access_secret(
   secret_id="openai-api-key"
 )
