@@ -9,7 +9,7 @@ on:
   push:
     branches:
       - main
-      - feature/ai_api_2
+      - feature/sound
 
 jobs:
   build-push-deploy:
