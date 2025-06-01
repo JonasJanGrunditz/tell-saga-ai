@@ -72,7 +72,7 @@ async def chat(request: Request) -> JSONResponse:  # noqa: D401
 
     try:
        
-        response = call_openai(text, client)
+        response = call_openai(text, client, functionality='chat')
         logger.info(f"Generated story for input: {text}...")
         return JSONResponse(content={"reply": response.story})
     except Exception as exc:
@@ -81,6 +81,39 @@ async def chat(request: Request) -> JSONResponse:  # noqa: D401
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate response."
         )
+    
+
+@app.post("/suggestions", response_model=Dict[str, Any], status_code=200)
+async def suggestions(request: Request) -> JSONResponse:  # noqa: D401
+
+    try:
+        body: Dict[str, Any] = await request.json()
+    except json.JSONDecodeError as exc:
+        logger.warning("Malformed JSON received: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload."
+        )
+
+    text: Optional[str] = body.get("text")
+
+    if not text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text field is required."
+        )
+
+    try:
+        response = call_openai(text, client, functionality='suggestions')
+        logger.info(f"Generated story for input: {text}...")
+        return JSONResponse(content={"reply": response.suggestions})
+    except Exception as exc:
+        logger.error(f"Error calling OpenAI: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate response."
+        )
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

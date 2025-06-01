@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - main
-      - feature/basic
+      - feature/ai_api_2
 
 jobs:
   terraform:
