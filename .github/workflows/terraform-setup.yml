@@ -1,0 +1,124 @@
+name: Terraform Apply
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  CLOUDRUN_NAME: ${{ secrets.CLOUDRUN_NAME }}
+on:
+  push:
+    branches:
+      - main
+      - feature/basic
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    # Only one job in this workflow may touch the state bucket at a time.
+    concurrency:
+      group: terraform-state                       # any name; same for every run
+      cancel-in-progress: true                     # cancel superseded runs
+
+    # google-github-actions/auth needs these privileges
+    permissions:
+      contents: read
+      id-token:  write
+
+    steps:
+    # ─────────────────────────────────────────────
+    # 1. Checkout
+    # ─────────────────────────────────────────────
+    - uses: actions/checkout@v3
+
+    # ─────────────────────────────────────────────
+    # 2. Authenticate to Google Cloud
+    # ─────────────────────────────────────────────
+    - name: Authenticate to GCP
+      id: auth
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        export_environment_variables: true   # makes creds visible to all later steps
+
+    # (explicit) activate the key for gcloud / gsutil
+    - name: Activate service account
+      run: |
+        gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
+    # ─────────────────────────────────────────────
+    # 3. Prove which identity gsutil is using
+    # ─────────────────────────────────────────────
+    - name: Verify gsutil identity
+      run: |
+        echo "--- gcloud auth list"
+        gcloud auth list
+        echo "--- gsutil ls (project)"
+        gsutil ls -p "$CLOUDSDK_CORE_PROJECT" || true
+
+    # ─────────────────────────────────────────────
+    # 4. Remove any stale Terraform lock & state
+    # ─────────────────────────────────────────────
+    - name: Clear stale Terraform lock / state
+      run: |
+        # Remove stale lock – if it doesn't exist, ignore the error
+        gsutil rm gs://terraform-tellsagaai/prod/default.tflock || true
+        # (optional) remove state file as in your original workflow
+        gsutil rm gs://terraform-tellsagaai/prod/default.tfstate || true
+
+    # ─────────────────────────────────────────────
+    # 5. Install Terraform
+    # ─────────────────────────────────────────────
+    - uses: hashicorp/setup-terraform@v2
+
+    # ─────────────────────────────────────────────
+    # 6. Terraform init
+    # ─────────────────────────────────────────────
+    
+    - name: Terraform Init
+      working-directory: ./terraform
+      env:
+        TF_VAR_project_id:    ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_region:        ${{ secrets.GCP_REGION }}
+        TF_VAR_cloudrun_name: ${{ secrets.CLOUDRUN_NAME }}
+      run: terraform init
+
+    - name: Log Cloud Run Details
+      run: echo "locations/${{ env.REGION }}/namespaces/${{ env.GCP_PROJECT_ID }}/services/${{ env.CLOUDRUN_NAME }}"
+
+    # ─────────────────────────────────────────────
+    # 7. Import existing Cloud Run service
+    # Make sure to change the below 
+    # ─────────────────────────────────────────────
+    - name: Import Cloud Run service
+      working-directory: ./terraform
+      env:
+        TF_VAR_project_id:    ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_region:        ${{ secrets.GCP_REGION }}
+        TF_VAR_cloudrun_name: ${{ secrets.CLOUDRUN_NAME }}
+      run: |
+        terraform import \
+          google_cloud_run_service.service \
+          locations/${{ env.REGION }}/namespaces/${{ env.GCP_PROJECT_ID }}/services/${{ env.CLOUDRUN_NAME }}
+
+          
+
+    # ─────────────────────────────────────────────
+    # 8. Terraform Plan
+    # ─────────────────────────────────────────────
+    - name: Terraform Plan
+      working-directory: ./terraform
+      env:
+        TF_VAR_project_id:    ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_region:        ${{ secrets.GCP_REGION }}
+        TF_VAR_cloudrun_name: ${{ secrets.CLOUDRUN_NAME }}
+      run: terraform plan -out=tfplan
+
+    # ─────────────────────────────────────────────
+    # 9. Terraform Apply
+    # ─────────────────────────────────────────────
+    - name: Terraform Apply
+      working-directory: ./terraform
+      env:
+        TF_VAR_project_id:    ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_region:        ${{ secrets.GCP_REGION }}
+        TF_VAR_cloudrun_name: ${{ secrets.CLOUDRUN_NAME }}
+      run: terraform apply -input=false -auto-approve tfplan

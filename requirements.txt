@@ -1,0 +1,8 @@
+asyncio
+fastapi
+uvicorn[standard]
+openai>=1.0.0
+httpx
+pydantic
+openai-agents
+google-cloud-secret-manager

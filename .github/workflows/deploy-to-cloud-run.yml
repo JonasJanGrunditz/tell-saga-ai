@@ -1,0 +1,56 @@
+name: Deploy to Cloud Run
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  CLOUDRUN_NAME: ${{ secrets.CLOUDRUN_NAME }}
+
+on:
+  push:
+    branches:
+      - main
+      - feature/basic
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 1. Authenticate to GCP with the service-account key stored in the secret
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # 2. Set up gcloud CLI
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
+      # 3. Build & push two tags:
+      #    • SHA tag       (useful for roll-backs)
+      #    • latest        (what Cloud Run always points at)
+      
+      - name: Build and push image
+        run: |
+          IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUDRUN_NAME }}"
+          docker build -t ${IMAGE}:${{ github.sha }} -t ${IMAGE}:latest .
+          gcloud auth configure-docker -q
+          docker push ${IMAGE}:${{ github.sha }}
+          docker push ${IMAGE}:latest
+
+      # 4. Deploy the SHA tag (latest will be updated automatically too)
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUDRUN_NAME }}"
+          gcloud run deploy ${{ env.CLOUDRUN_NAME }} \
+            --image ${IMAGE}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --set-env-vars GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
