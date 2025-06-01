@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from openai import OpenAI
 from google.cloud import secretmanager
 from LLM.model import call_openai
+from GCP.secret_manager import access_secret
 
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,16 +34,10 @@ logger.setLevel(LOG_LEVEL)
 
 
 
-client = secretmanager.SecretManagerServiceClient()
-def access_secret(project_id, secret_id, version_id=1):
-    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
-PROJECT_ID = "mittliv"
-SECRET_ID = "openai-api-key"
+
+
 openai_api_key = access_secret(
-  project_id=PROJECT_ID, 
-  secret_id=SECRET_ID
+  secret_id="openai-api-key"
 )
 
 openai_api_key = openai_api_key.strip() if openai_api_key else None
