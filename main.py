@@ -5,15 +5,17 @@ import asyncio
 import json
 import uvicorn
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, status, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import tempfile
+
 from openai import OpenAI
 from google.cloud import secretmanager
 from LLM.model import call_openai
 from GCP.secret_manager import access_secret
-
+from LLM.voice_to_text import call_voice_to_text
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(MODULE_DIR)
@@ -111,6 +113,69 @@ async def suggestions(request: Request) -> JSONResponse:  # noqa: D401
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate response."
+        )
+    
+
+
+@app.post("/transcribe", response_model=Dict[str, Any], status_code=200)
+async def transcribe_audio(audio_file: UploadFile = File(...)) -> JSONResponse:
+    """
+    Transcribe uploaded audio file to text.
+    
+    Args:
+        audio_file: The audio file to transcribe (supports mp4, webm, wav, etc.)
+        
+    Returns:
+        JSONResponse with transcribed text
+    """
+    
+    # Validate file type
+    allowed_types = [
+        "audio/mp4", "audio/webm", "audio/wav", 
+        "audio/ogg", "audio/mpeg", "audio/m4a"
+    ]
+    
+    # Extract base MIME type (remove codec parameters)
+    base_content_type = audio_file.content_type.split(';')[0] if audio_file.content_type else ""
+    
+    if base_content_type not in allowed_types:
+        logger.warning(f"Unsupported file type: {audio_file.content_type}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported audio format. Supported formats: {', '.join(allowed_types)}"
+        )
+    
+    # Validate file size (e.g., max 25MB)
+    max_file_size = 25 * 1024 * 1024  # 25MB in bytes
+    file_content = await audio_file.read()
+    
+    if len(file_content) > max_file_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size too large. Maximum size is 25MB."
+        )
+    
+    try:
+        # Create a temporary file to save the uploaded audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio_file.filename.split('.')[-1]}") as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+        
+        try:
+            transcribed_text = call_voice_to_text(client, temp_file_path)
+            logger.info(f"Successfully transcribed audio file: {audio_file.filename}")
+            return JSONResponse(content={"transcription": transcribed_text})
+            
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                
+    except Exception as exc:
+        logger.error(f"Error transcribing audio: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to transcribe audio file."
         )
 
 
