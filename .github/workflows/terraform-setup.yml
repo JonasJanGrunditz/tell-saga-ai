@@ -88,16 +88,16 @@ jobs:
     # 7. Import existing Cloud Run service
     # Make sure to change the below 
     # ─────────────────────────────────────────────
-    # - name: Import Cloud Run service
-    #   working-directory: ./terraform
-    #   env:
-    #     TF_VAR_project_id:    ${{ secrets.GCP_PROJECT_ID }}
-    #     TF_VAR_region:        ${{ secrets.GCP_REGION }}
-    #     TF_VAR_cloudrun_name: ${{ secrets.CLOUDRUN_NAME }}
-    #   run: |
-    #     terraform import \
-    #       google_cloud_run_service.service \
-    #       locations/${{ env.REGION }}/namespaces/${{ env.GCP_PROJECT_ID }}/services/${{ env.CLOUDRUN_NAME }}
+    - name: Import Cloud Run service
+      working-directory: ./terraform
+      env:
+        TF_VAR_project_id:    ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_region:        ${{ secrets.GCP_REGION }}
+        TF_VAR_cloudrun_name: ${{ secrets.CLOUDRUN_NAME }}
+      run: |
+        terraform import \
+          google_cloud_run_service.service \
+          locations/${{ env.REGION }}/namespaces/${{ env.GCP_PROJECT_ID }}/services/${{ env.CLOUDRUN_NAME }}
 
           
 
