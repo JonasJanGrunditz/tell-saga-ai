@@ -38,8 +38,6 @@ logger.setLevel(LOG_LEVEL)
 openai_api_key = access_secret(
   secret_id="openai-api-key"
 )
-
-openai_api_key = openai_api_key.strip() if openai_api_key else None
 client = OpenAI(api_key=openai_api_key)
 
 app = FastAPI(title="Customer-Service Chatbot", version="1.0.0")
