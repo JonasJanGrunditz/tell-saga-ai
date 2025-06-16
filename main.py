@@ -77,6 +77,10 @@ async def chat(request: Request) -> JSONResponse:  # noqa: D401
         response = call_openai(text, client, functionality='chat')
         logger.info(f"Generated story for input: {text}...")
         return JSONResponse(content={"reply": response.story})
+    except ValidationError as exc:
+        # Handle case where OpenAI returns plain text rejection instead of structured output
+        logger.warning(f"Content rejected by OpenAI safety filters: {exc}")
+        return JSONResponse(content={"reply": "Jag kan inte hjälpa till att förbättra denna typ av innehåll."})
     except Exception as exc:
         logger.error(f"Error calling OpenAI: {exc}")
         raise HTTPException(
