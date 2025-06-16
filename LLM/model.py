@@ -21,7 +21,7 @@ def call_openai(
     else:
         raise ValueError("Invalid functionality specified. Use 'chat' or 'suggestions'.")
     response = client.responses.parse(
-        model="gpt-4o-2024-08-06",
+        model="o4-mini-2025-04-16",
         input=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {
