@@ -10,6 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import tempfile
+from pydantic import ValidationError
 
 from openai import OpenAI
 from google.cloud import secretmanager
@@ -77,6 +78,10 @@ async def chat(request: Request) -> JSONResponse:  # noqa: D401
         response = call_openai(text, client, functionality='chat')
         logger.info(f"Generated story for input: {text}...")
         return JSONResponse(content={"reply": response.story})
+    except ValidationError as exc:
+        # Handle case where OpenAI returns plain text rejection instead of structured output
+        logger.warning(f"Content rejected by OpenAI safety filters: {exc}")
+        return JSONResponse(content={"reply": "Jag kan inte hjälpa till att förbättra denna typ av innehåll."})
     except Exception as exc:
         logger.error(f"Error calling OpenAI: {exc}")
         raise HTTPException(
@@ -106,8 +111,12 @@ async def suggestions(request: Request) -> JSONResponse:  # noqa: D401
 
     try:
         response = call_openai(text, client, functionality='suggestions')
-        logger.info(f"Generated story for input: {text}...")
+        logger.info(f"Generated suggestions for input: {text}...")
         return JSONResponse(content={"reply": response.suggestions})
+    except ValidationError as exc:
+        # Handle case where OpenAI returns plain text rejection instead of structured output
+        logger.warning(f"Content rejected by OpenAI safety filters: {exc}")
+        return JSONResponse(content={"reply": ["Jag kan inte ge förslag på denna typ av innehåll."]})
     except Exception as exc:
         logger.error(f"Error calling OpenAI: {exc}")
         raise HTTPException(
