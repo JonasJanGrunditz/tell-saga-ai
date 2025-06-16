@@ -10,7 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import tempfile
-
+from pydantic import ValidationError
 from openai import OpenAI
 from google.cloud import secretmanager
 from LLM.model import call_openai
