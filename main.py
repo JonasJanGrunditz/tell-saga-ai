@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import tempfile
 from pydantic import ValidationError
-from openai import OpenAI
+from openai import AsyncOpenAI
 from google.cloud import secretmanager
 from LLM.model import call_openai
 from GCP.secret_manager import access_secret
@@ -40,7 +40,11 @@ logger.setLevel(LOG_LEVEL)
 openai_api_key = access_secret(
   secret_id="openai-api-key"
 )
-client = OpenAI(api_key=openai_api_key)
+client = AsyncOpenAI(
+    api_key=openai_api_key,
+    timeout=30.0,
+    max_retries=2
+)
 
 app = FastAPI(title="Customer-Service Chatbot", version="1.0.0")
 app.add_middleware(
@@ -74,7 +78,7 @@ async def chat(request: Request) -> JSONResponse:  # noqa: D401
 
     try:
        
-        response = call_openai(text, client, functionality='chat')
+        response = await call_openai(text, client, functionality='chat')
         logger.info(f"Generated story for input: {text}...")
         return JSONResponse(content={"reply": response.story})
     except ValidationError as exc:
@@ -109,7 +113,7 @@ async def suggestions(request: Request) -> JSONResponse:  # noqa: D401
         )
 
     try:
-        response = call_openai(text, client, functionality='suggestions')
+        response = await call_openai(text, client, functionality='suggestions')
         logger.info(f"Generated story for input: {text}...")
         return JSONResponse(content={"reply": response.suggestions})
     except ValidationError as exc:
