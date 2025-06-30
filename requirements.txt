@@ -6,3 +6,4 @@ httpx
 pydantic
 openai-agents
 google-cloud-secret-manager
+supabase

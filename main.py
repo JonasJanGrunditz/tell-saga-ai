@@ -16,6 +16,8 @@ from google.cloud import secretmanager
 from LLM.model import call_openai
 from GCP.secret_manager import access_secret
 from LLM.voice_to_text import call_voice_to_text
+from style_context import get_user_style_context
+from supabase import create_client, Client
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(MODULE_DIR)
@@ -46,6 +48,17 @@ client = AsyncOpenAI(
     max_retries=2
 )
 
+url_supabase = access_secret(
+  secret_id="url_supabase"
+)
+
+key_supabase = access_secret(
+  secret_id="key_supabase"
+)
+# Initialize Supabase client
+supabase: Client = create_client(url_supabase, key_supabase)
+
+
 app = FastAPI(title="Customer-Service Chatbot", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -59,7 +72,6 @@ app.add_middleware(
 @app.post("/chat", response_model=Dict[str, Any], status_code=200)
 async def chat(request: Request) -> JSONResponse:  # noqa: D401
 
-
     try:
         body: Dict[str, Any] = await request.json()
     except json.JSONDecodeError as exc:
@@ -69,6 +81,9 @@ async def chat(request: Request) -> JSONResponse:  # noqa: D401
         ) 
     
     text: Optional[str] = body.get("text")
+    book_id: Optional[str] = body.get("book_id")
+
+    print(f"Received book_id: {book_id}")
     
     if not text:
         raise HTTPException(
@@ -77,8 +92,21 @@ async def chat(request: Request) -> JSONResponse:  # noqa: D401
         )
 
     try:
+        # Get style context if book_id is provided
+        style_context = None
+        if book_id:
+            try:
+                style_context = await get_user_style_context(book_id, limit=20, supabase=supabase)
+                
+                if style_context:
+                    logger.info(f"Using style context for book {book_id}")
+                else:
+                    logger.info(f"No style context available for book {book_id}")
+            except Exception as style_exc:
+                logger.warning(f"Failed to get style context: {style_exc}")
+                # Continue without style context if there's an error
        
-        response = await call_openai(text, client, functionality='chat')
+        response = await call_openai(text, client, functionality='chat', style_context=style_context)
         logger.info(f"Generated story for input: {text}...")
         return JSONResponse(content={"reply": response.story})
     except ValidationError as exc:
@@ -189,6 +217,7 @@ async def transcribe_audio(audio_file: UploadFile = File(...)) -> JSONResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to transcribe audio file."
         )
+
 
 
 
