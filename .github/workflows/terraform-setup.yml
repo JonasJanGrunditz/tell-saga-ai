@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - main
-      - feature/improve-prompt
+      - feature/historical-data-customer
 
 jobs:
   terraform:
