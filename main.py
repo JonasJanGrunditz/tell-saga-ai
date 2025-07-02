@@ -202,7 +202,7 @@ async def transcribe_audio(audio_file: UploadFile = File(...)) -> JSONResponse:
             temp_file_path = temp_file.name
         
         try:
-            transcribed_text = call_voice_to_text(client, temp_file_path)
+            transcribed_text = await call_voice_to_text(client, temp_file_path)
             logger.info(f"Successfully transcribed audio file: {audio_file.filename}")
             return JSONResponse(content={"transcription": transcribed_text})
             
