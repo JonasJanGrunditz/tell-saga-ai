@@ -1,12 +1,12 @@
-from openai import OpenAI
+from openai import AsyncOpenAI
 
-def call_voice_to_text(
-    client: OpenAI,
+async def call_voice_to_text(
+    client: AsyncOpenAI,
     temp_file_path: str,
-) -> dict:
+) -> str:
     with open(temp_file_path, "rb") as audio:
-        transcription = client.audio.transcriptions.create(
-            model="gpt-4o-transcribe", 
+        transcription = await client.audio.transcriptions.create(
+            model="whisper-1", 
             file=audio,
             response_format="text",
             )

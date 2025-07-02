@@ -9,7 +9,7 @@ on:
   push:
     branches:
       - main
-      - feature/historical-data-customer
+      - feature/audio-fix
 
 jobs:
   build-push-deploy:
